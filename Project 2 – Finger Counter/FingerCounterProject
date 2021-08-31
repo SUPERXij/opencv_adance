@@ -1,0 +1,73 @@
+import cv2
+import time
+import os
+import HandTrackingModule as htm
+
+wCam, hCam = 640, 480
+
+cap = cv2.VideoCapture(0)
+cap.set(3, wCam)
+cap.set(4, hCam)
+
+folderPath = 'FingersImages'
+myList = os.listdir(folderPath)
+print(myList)
+
+num = 1
+
+overlayList = []
+for imPath in myList:
+    image = cv2.imread(f'{folderPath}/{imPath}')
+    image = cv2.resize(image, (150, 150))
+    overlayList.append(image)
+
+pTime = 0
+
+detector = htm.handDetector(maxHands=1, detectionCon=0.75)
+
+tipIds = [4, 8, 12, 16, 20]
+fingerIDs = [[1, 1, 0, 0, 0], [0, 1, 1, 0, 0], [1, 0, 1, 1, 1], [0, 1, 1, 1, 1],
+             [1, 1, 1, 1, 1], [0, 0, 0, 0, 1], [1, 1, 1, 0, 0], [0, 1, 0, 0, 0],
+             [1, 0, 0, 0, 0], [0, 0, 0, 0, 0]]
+
+while True:
+    success, img = cap.read()
+    img = cv2.flip(img, 1)
+    img = detector.findHand(img)
+    lmList = detector.findPosition(img, draw=False)
+
+    if len(lmList) != 0:
+        fingers = []
+
+        if lmList[tipIds[0]][1] < lmList[tipIds[0] - 1][1]:
+            fingers.append(1)
+        else:
+            fingers.append(0)
+
+        for id in range(1, 5):
+            if lmList[tipIds[id]][2] < lmList[tipIds[id] - 2][2]:
+                fingers.append(1)
+            else:
+                fingers.append(0)
+        # print(fingers)
+        for i in range(10):
+            if fingerIDs[i] == fingers:
+                num = i
+
+        # 1 11000 2 01100 3 10111 4 01111 5 11111
+        # 6 00001 7 11100 8 01000 9 10000 10 00000
+        img[0:150, 0:150] = overlayList[num]
+
+        cv2.rectangle(img, (10, 260), (150, 400), (0, 120, 0), cv2.FILLED)
+        cv2.putText(img, str(num + 1), (20, 375), cv2.FONT_HERSHEY_PLAIN,
+                    6, (255, 255, 0), 10)
+
+    cTime = time.time()
+    fps = 1 / (cTime - pTime)
+    pTime = cTime
+
+    cv2.putText(img, f'FPS:{int(fps)}', (400, 70), cv2.FONT_HERSHEY_PLAIN,
+                3, (255, 0, 0), 3)
+
+    cv2.imshow("Image", img)
+    cv2.waitKey(1)
